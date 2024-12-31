@@ -9,7 +9,7 @@ public class Playlist
     public string Name { get; set; }
     
     public bool IsShuffled { get; set; }
-    public List<Song> Songs { get; set; }
+    public List<PlaylistSong> PlaylistSongs { get; set; }
     public int OwnerId { get; set; }
     public MusicUser Owner { get; set; }
 }

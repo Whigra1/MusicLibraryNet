@@ -22,6 +22,7 @@
         <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="3.0.0" />
         <PackageReference Include="Npgsql" Version="9.0.2" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
+        <PackageReference Include="OpenAI" Version="2.1.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     </ItemGroup>
 
@@ -29,6 +30,10 @@
       <Content Include="..\.dockerignore">
         <Link>.dockerignore</Link>
       </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Assets\" />
     </ItemGroup>
 
 </Project>

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using MusicLibraryNet.Database;
 using MusicLibraryNet.Database.Auth;
 using MusicLibraryNet.Database.Music;
@@ -17,7 +18,7 @@ public class PlaylistService(
 ) : IPlaylistService<PlaylistDto, Playlist>
 {
     
-    public async Task<OperationResult<List<Playlist>>> GetAsync()
+    public async Task<OperationResult<List<Playlist>>> GetAsync(Expression<Func<Playlist, bool>>? filter = null)
     {
         if (httpContextAccessor.HttpContext?.User.Identity?.Name is null)
             return new Fail<List<Playlist>>("User not found");
@@ -25,7 +26,11 @@ public class PlaylistService(
         var user = await userManager.FindByNameAsync(httpContextAccessor.HttpContext!.User.Identity!.Name);
         if (user is null) return new Fail<List<Playlist>>("User not found");
         
-        var song = await context.Playlists.Where(s => s.OwnerId == user.Id).ToListAsync();
+        
+        var song = await context.Playlists
+            .Where(s => s.OwnerId == user.Id)
+            .Where(filter ?? (_ => true))
+            .ToListAsync();
         return new Success<List<Playlist>>(song);
     }
     
@@ -36,15 +41,32 @@ public class PlaylistService(
         
         var user = await userManager.FindByNameAsync(httpContextAccessor.HttpContext!.User.Identity!.Name);
         if (user is null) return new Fail<Playlist>("User not found");
+
+        var playlistQuery = context.Playlists
+            .Include(p => p.PlaylistSongs)
+                .ThenInclude(p => p.Song)
+            .Where(p => p.OwnerId == user.Id);
         
-        var playlist  = await context.Playlists.FirstOrDefaultAsync(s => s.Id == dto.Id);
-        if (playlist is null) return new Fail<Playlist>($"Song with ID: {dto.Id} not found");
+        if (dto.Id > 0) playlistQuery = playlistQuery.Where(p => p.Id == dto.Id);
+        if (!string.IsNullOrEmpty(dto.Name)) playlistQuery = playlistQuery.Where(p => p.Name.Equals(dto.Name, StringComparison.CurrentCultureIgnoreCase));
         
-        return new Success<Playlist>(playlist);
+        var playlist = await playlistQuery.FirstOrDefaultAsync();
+        if (playlist is null) return new Fail<Playlist>($"Playlist with ID: {dto.Id} not found or not accessible");
+
+        playlist.PlaylistSongs.ForEach(pS => { pS.Song.Owner = null; });
+        
+        var playlistR = new Playlist
+        {
+            Id = playlist.Id,
+            IsShuffled = playlist.IsShuffled,
+            Name = playlist.Name,
+            OwnerId = playlist.OwnerId,
+            PlaylistSongs = playlist.PlaylistSongs
+        };
+        
+        return new Success<Playlist>(playlistR);
     }
     
-    
-
     public async Task<OperationResult<Playlist>> CreateAsync(PlaylistDto dto)
     {
         // Ensure the user is logged in and exists in the system
@@ -64,14 +86,20 @@ public class PlaylistService(
         // Create the playlist
         var playlist = new Playlist
         {
+            Name = dto.Name,
             IsShuffled = dto.IsShuffled,
-            OwnerId = user.Id
+            OwnerId = user.Id,
+            PlaylistSongs = []
         };
 
         await context.Playlists.AddAsync(playlist);
         await context.SaveChangesAsync();
 
-        return new Success<Playlist>(playlist);
+        return new Success<Playlist>(new Playlist
+        {
+            Id = playlist.Id,
+            Name = playlist.Name
+        });
     }
 
     public async Task<OperationResult<Playlist>> UpdateAsync(PlaylistDto dto)
@@ -85,7 +113,8 @@ public class PlaylistService(
 
         // Fetch the playlist to update
         var existingPlaylist = await context.Playlists
-            .Include(p => p.Songs) // Include Songs for easier modification
+            .Include(p => p.PlaylistSongs) // Include Songs for easier modification
+                .ThenInclude(ps => ps.Song)
             .FirstOrDefaultAsync(p => p.Id == dto.Id && p.OwnerId == user.Id);
         
         if (existingPlaylist is null) 
@@ -94,6 +123,11 @@ public class PlaylistService(
         // Update playlist properties
         existingPlaylist.Name = dto.Name;
         existingPlaylist.IsShuffled = dto.IsShuffled;
+        existingPlaylist.PlaylistSongs = (dto.Songs ?? []).Select(s => new PlaylistSong
+        {
+            SongId = (int) s.Id!,
+            Order = s.Order,
+        }).ToList();
         context.Playlists.Update(existingPlaylist);
         await context.SaveChangesAsync();
 

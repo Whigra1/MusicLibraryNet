@@ -35,7 +35,29 @@ public class AuthenticationController(
         return Ok();   
     }
 
-   
+    [HttpGet("user")]
+    public async Task<IActionResult> GetUser()
+    {
+        if (HttpContext.User.Identity is null) 
+            return Unauthorized();
+        
+        var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
+        if (user is null)
+            return Unauthorized();
+        
+        return Ok(new
+        {
+            user.FirstName,
+            user.LastName,
+            user.Email,
+            user.DateOfBirth,
+            user.UserName,
+            user.Id,
+            user.PhoneNumber
+        });
+    }
+
+
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
@@ -54,12 +76,15 @@ public class AuthenticationController(
 
         var user = new MusicUser
         {
+            FirstName = signUpDto.FirstName,
+            LastName = signUpDto.SecondName,
             Email = signUpDto.Email,
-            UserName = signUpDto.UserName,
+            DateOfBirth = signUpDto.DateOfBirth,
+            UserName = signUpDto.UserName
         };
         var creationResult = await userManager.CreateAsync(user);
         if (!creationResult.Succeeded)
-            return BadRequest(); // TODO add error text
+            return BadRequest(creationResult.Errors); // TODO add error text
         
         var passSetResult = await userManager.AddPasswordAsync(user, signUpDto.Password);
         if (!passSetResult.Succeeded)
@@ -67,13 +92,14 @@ public class AuthenticationController(
             await userManager.DeleteAsync(user);
             return BadRequest($"Invalid password {passSetResult.Errors.First().Description}");
         }
+        await signInManager.SignInWithClaimsAsync(user, true, [
+            new Claim("IsAdmin", "false"),
+            new Claim("IsSystemAdmin", "false")
+        ]);
         return Ok();
     }
 
     [Authorize]
     [HttpGet("test")]
-    public IActionResult Test()
-    {
-        return Ok();
-    }
+    public Task<IActionResult> Test() => Task.FromResult<IActionResult>(Ok());
 }

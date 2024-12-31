@@ -7,4 +7,5 @@ public class PlaylistDto
     public string Name { get; set; }
     public bool IsShuffled { get; set; }
     public int OwnerId { get; set; }
+    public List<PlaylistSongDto>? Songs { get; set; }
 }

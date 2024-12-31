@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http.HttpResults;
+using System.Linq.Expressions;
 using Microsoft.AspNetCore.Mvc;
 using MusicLibraryNet.Services.Abstractions;
 
@@ -6,12 +6,12 @@ namespace MusicLibraryNet.Services;
 
 public class EntityCrudExecutor<TIn, TOut> (ICrudService<TIn, TOut> service) : Controller
 {
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get(Expression<Func<TOut, bool>>? predicate = null)
     {
-        return await service.GetAsync() switch
+        return await service.GetAsync(predicate) switch
         {
-            Fail<List<TOut>> fail => BadRequest(fail.Message),
             Success<List<TOut>> success => Ok(success.Value),
+            Fail<List<TOut>> fail => BadRequest(fail.Message),
             null => throw new NotImplementedException(),
             _ => throw new ArgumentOutOfRangeException()
         };
@@ -21,8 +21,8 @@ public class EntityCrudExecutor<TIn, TOut> (ICrudService<TIn, TOut> service) : C
     {
         return await service.GetAsync(dto) switch
         {
-            Fail<List<TOut>> fail => BadRequest(fail.Message),
-            Success<List<TOut>> success => Ok(success.Value),
+            Success<TOut> success => Ok(success.Value),
+            Fail<TOut> fail => BadRequest(fail.Message),
             null => throw new NotImplementedException(),
             _ => throw new ArgumentOutOfRangeException()
         };
@@ -32,8 +32,8 @@ public class EntityCrudExecutor<TIn, TOut> (ICrudService<TIn, TOut> service) : C
     {
         return await service.CreateAsync(dto) switch
         {
-            Fail<List<TOut>> fail => BadRequest(fail.Message),
-            Success<List<TOut>> success => Ok(success.Value),
+            Success<TOut> success => Ok(success.Value),
+            Fail<TOut> fail => BadRequest(fail.Message),
             null => throw new NotImplementedException(),
             _ => throw new ArgumentOutOfRangeException()
         };
@@ -44,8 +44,8 @@ public class EntityCrudExecutor<TIn, TOut> (ICrudService<TIn, TOut> service) : C
     {
         return await service.UpdateAsync(dto) switch
         {
-            Fail<List<TOut>> fail => BadRequest(fail.Message),
-            Success<List<TOut>> success => Ok(success.Value),
+            Success<TOut> success => Ok(success.Value),
+            Fail<TOut> fail => BadRequest(fail.Message),
             null => throw new NotImplementedException(),
             _ => throw new ArgumentOutOfRangeException()
         };
@@ -55,8 +55,8 @@ public class EntityCrudExecutor<TIn, TOut> (ICrudService<TIn, TOut> service) : C
     {
         return await service.DeleteAsync(dto) switch
         {
-            Fail<List<TOut>> fail => BadRequest(fail.Message),
-            Success<List<TOut>> success => Ok(success.Value),
+            Success<TOut> success => Ok(success.Value),
+            Fail<TOut> fail => BadRequest(fail.Message),
             null => throw new NotImplementedException(),
             _ => throw new ArgumentOutOfRangeException()
         };
